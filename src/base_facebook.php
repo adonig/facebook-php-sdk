@@ -258,7 +258,7 @@ abstract class BaseFacebook
     }
     if (isset($config['allowSignedRequest'])
         && !$config['allowSignedRequest']) {
-        $this->allowSignedRequest = false;
+      $this->allowSignedRequest = false;
     }
     $state = $this->getPersistentData('state');
     if (!empty($state)) {
@@ -388,30 +388,18 @@ abstract class BaseFacebook
    */
   public function setExtendedAccessToken() {
     try {
-      // need to circumvent json_decode by calling _oauthRequest
-      // directly, since response isn't JSON format.
-      $access_token_response = $this->_oauthRequest(
-        $this->getUrl('graph', '/oauth/access_token'),
-        $params = array(
-          'client_id' => $this->getAppId(),
-          'client_secret' => $this->getAppSecret(),
-          'grant_type' => 'fb_exchange_token',
-          'fb_exchange_token' => $this->getAccessToken(),
-        )
-      );
+      $response_params = $this->_graph('/oauth/access_token', $params=array(
+        'client_id' => $this->getAppId(),
+        'client_secret' => $this->getAppSecret(),
+        'grant_type' => 'fb_exchange_token',
+        'fb_exchange_token' => $this->getAccessToken(),
+      ));
     }
     catch (FacebookApiException $e) {
       // most likely that user very recently revoked authorization.
       // In any event, we don't have an access token, so say so.
       return false;
     }
-
-    if (empty($access_token_response)) {
-      return false;
-    }
-
-    $response_params = array();
-    parse_str($access_token_response, $response_params);
 
     if (!isset($response_params['access_token'])) {
       return false;
@@ -493,8 +481,9 @@ abstract class BaseFacebook
       // signed request states there's no access token, so anything
       // stored should be cleared.
       $this->clearAllPersistentData();
-      return false; // respect the signed request's data, even
-                    // if there's an authorization code or something else
+      // respect the signed request's data, even
+      // if there's an authorization code or something else
+      return false; 
     }
 
     $code = $this->getCode();
@@ -710,10 +699,10 @@ abstract class BaseFacebook
       return false;
     }
     if ($this->state === $_REQUEST['state']) {
-        // CSRF state has done its job, so clear it
-        $this->state = null;
-        $this->clearPersistentData('state');
-        return $_REQUEST['code'];
+      // CSRF state has done its job, so clear it
+      $this->state = null;
+      $this->clearPersistentData('state');
+      return $_REQUEST['code'];
     }
     self::errorLog('CSRF state token does not match one provided.');
 
@@ -786,27 +775,18 @@ abstract class BaseFacebook
     }
 
     try {
-      // need to circumvent json_decode by calling _oauthRequest
-      // directly, since response isn't JSON format.
-      $access_token_response =
-        $this->_oauthRequest(
-          $this->getUrl('graph', '/oauth/access_token'),
-          $params = array('client_id' => $this->getAppId(),
-                          'client_secret' => $this->getAppSecret(),
-                          'redirect_uri' => $redirect_uri,
-                          'code' => $code));
+      $response_params = $this->_graph('/oauth/access_token', $params = array(
+        'client_id' => $this->getAppId(),
+        'client_secret' => $this->getAppSecret(),
+        'redirect_uri' => $redirect_uri,
+        'code' => $code,
+      ));
     } catch (FacebookApiException $e) {
       // most likely that user very recently revoked authorization.
       // In any event, we don't have an access token, so say so.
       return false;
     }
 
-    if (empty($access_token_response)) {
-      return false;
-    }
-
-    $response_params = array();
-    parse_str($access_token_response, $response_params);
     if (!isset($response_params['access_token'])) {
       return false;
     }
@@ -995,25 +975,25 @@ abstract class BaseFacebook
     // fall back to IPv6 and the error EHOSTUNREACH is returned by the
     // operating system.
     if ($result === false && empty($opts[CURLOPT_IPRESOLVE])) {
-        $matches = array();
-        $regex = '/Failed to connect to ([^:].*): Network is unreachable/';
-        if (preg_match($regex, curl_error($ch), $matches)) {
-          if (strlen(@inet_pton($matches[1])) === 16) {
-            self::errorLog('Invalid IPv6 configuration on server, '.
-                           'Please disable or get native IPv6 on your server.');
-            self::$CURL_OPTS[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
-            curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
-            $result = curl_exec($ch);
-          }
+      $matches = array();
+      $regex = '/Failed to connect to ([^:].*): Network is unreachable/';
+      if (preg_match($regex, curl_error($ch), $matches)) {
+        if (strlen(@inet_pton($matches[1])) === 16) {
+          self::errorLog('Invalid IPv6 configuration on server, '.
+                         'Please disable or get native IPv6 on your server.');
+          self::$CURL_OPTS[CURLOPT_IPRESOLVE] = CURL_IPRESOLVE_V4;
+          curl_setopt($ch, CURLOPT_IPRESOLVE, CURL_IPRESOLVE_V4);
+          $result = curl_exec($ch);
         }
+      }
     }
 
     if ($result === false) {
       $e = new FacebookApiException(array(
         'error_code' => curl_errno($ch),
         'error' => array(
-        'message' => curl_error($ch),
-        'type' => 'CurlException',
+          'message' => curl_error($ch),
+          'type' => 'CurlException',
         ),
       ));
       curl_close($ch);
@@ -1033,8 +1013,8 @@ abstract class BaseFacebook
   protected function parseSignedRequest($signed_request) {
 
     if (!$signed_request || strpos($signed_request, '.') === false) {
-        self::errorLog('Signed request was invalid!');
-        return null;
+      self::errorLog('Signed request was invalid!');
+      return null;
     }
 
     list($encoded_sig, $payload) = explode('.', $signed_request, 2);
@@ -1324,12 +1304,9 @@ abstract class BaseFacebook
   protected function throwAPIException($result) {
     $e = new FacebookApiException($result);
     switch ($e->getType()) {
-      // OAuth 2.0 Draft 00 style
-      case 'OAuthException':
-        // OAuth 2.0 Draft 10 style
-      case 'invalid_token':
-        // REST server errors are just Exceptions
-      case 'Exception':
+      case 'OAuthException': // OAuth 2.0 Draft 00 style
+      case 'invalid_token':  // OAuth 2.0 Draft 10 style
+      case 'Exception':      // REST server errors are just Exceptions
         $message = $e->getMessage();
         if ((strpos($message, 'Error validating access token') !== false) ||
             (strpos($message, 'Invalid OAuth access token') !== false) ||
