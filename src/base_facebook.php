@@ -125,7 +125,7 @@ abstract class BaseFacebook
   /**
    * Version.
    */
-  const VERSION = '3.2.3';
+  const VERSION = '3.2.4';
 
   /**
    * Signed Request Algorithm.
